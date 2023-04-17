@@ -1,7 +1,6 @@
 import csv
 import datetime
 import os
-
 import pandas
 import pandas as pd
 import yfinance
@@ -11,7 +10,7 @@ import yfinance
 
 def openFileToRead():
     tickerList = []
-    with open(os.getcwd()+'\\MainCsvFolder\\New issues and IPOs_37.csv', 'r') as file:
+    with open(os.getcwd()+'\\MainCsvs\\New issues and IPOs_37.csv', 'r') as file:
         reader = csv.reader(file)
         for row in reader:
             if row[5] == 'TIDM':
@@ -81,11 +80,11 @@ def adjCloseCalc(mainDf,index,dataFromYahoo,daysToAdd):
 
 def main():
         pandas.set_option('display.max_columns', None)
-        df = pd.read_excel(os.getcwd() + '\\MainCsvFolder\\New issues and IPOs_37.xlsx', sheet_name='New Issues and IPOs',header=7)
+        df = pd.read_excel(os.getcwd() + '\\MainCsvs\\New issues and IPOs_37.xlsx', sheet_name='New Issues and IPOs',header=7)
         rows_to_drop = df[df['LSE IPO'] == "Not IPO"].index
         df.drop(rows_to_drop, inplace=True)
-        df.to_csv(os.getcwd() + '\\MainCsvFolder\\New issues and IPOs_37.csv', index=False)
-        mainDf = pandas.read_csv(os.getcwd() + '\\MainCsvFolder\\New issues and IPOs_37.csv',encoding='latin1',header=0)
+        df.to_csv(os.getcwd() + '\\MainCsvs\\New issues and IPOs_37.csv', index=False)
+        mainDf = pandas.read_csv(os.getcwd() + '\\MainCsvs\\New issues and IPOs_37.csv',encoding='latin1',header=0)
         for index in mainDf.itertuples():
             try:
                if index.TIDM != "": #if ticker exists
@@ -104,6 +103,7 @@ def main():
             except:
                 #error with download
                 pass
-        mainDf.to_csv('output.csv',index=False) #save for later viewing
+        mainDf.to_csv(os.getcwd()+'\\MainCsvs\\output.csv',index=False) #save for later viewing
+
 
 main()
