@@ -1,3 +1,0 @@
-Downloaded New issues and IPO csv from LSE 
-Sorted by LSE IPO and removed rows that did not contain IPO data
-Removed transfer column 
