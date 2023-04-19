@@ -1,13 +1,16 @@
 import csv
 import datetime
+
+import pandas as pd
+import yfinance
 import os
 import pandas
-import yfinance
-import matplotlib
 import matplotlib.pyplot as plt
 from sklearn.feature_selection import SelectKBest, f_classif, chi2
+from sklearn.preprocessing import OneHotEncoder
 from scipy.stats import linregress
 import numpy as np
+
 
 def getdatacsv():
     mainDf = pandas.read_csv(os.getcwd() + '\\MainData\\TickerData.csv', encoding='latin1', header=0)
@@ -100,6 +103,16 @@ def cleantotalraised(mainDf):
     mainDf.loc[mainDf['Money Raised - Existing ()'] == ' -   ', 'Money Raised - Existing ()'] = 23
     return mainDf
 
+def encodingcatagorical(mainDf):
+
+    mainDf['Market'] = mainDf['Market'].astype('category')
+    mainDf['Market_new'] = mainDf['Market'].cat.codes
+    encoder = OneHotEncoder(handle_unknown='error')
+    encData = pd.DataFrame(encoder.fit_transform(mainDf[['Market_new']]).toarray())
+    mainDf = mainDf.join(encData)
+    #print(mainDf)
+    return mainDf
+
 def datapreparation(mainDf):
     # use showrowswithmissingvals(mainDf)
     mainDf = removeemptyrows(mainDf)
@@ -107,7 +120,7 @@ def datapreparation(mainDf):
     mainDf = removecols(mainDf)
     mainDf = fixemptydata(mainDf)
     mainDf = cleancolumns(mainDf)
-
+    mainDf = encodingcatagorical(mainDf)
     #checkfortypes(mainDf) #all rows shown
     #rowcount(mainDf) #how many rows in df
     mainDf.to_csv(os.getcwd() + '\\MainData\\DataPrep.csv', index=False)  # save for later viewing
@@ -118,22 +131,7 @@ def datapreparation(mainDf):
     return mainDf
 
 
-def exploratorydataanalysis(mainDf):
-    issueprice(mainDf)
-    moneyraised(mainDf)
-    totalraised(mainDf)
-    #topfeatures(mainDf)
-    #mainDf['Currency'].value_counts().plot.bar()
-    #matplotlib.pyplot.show()
 
-    # mainDf['Initial Trading Open'].plot.bar()
-    #matplotlib.pyplot.boxplot(mainDf['Initial Trading Open'], showmeans=True)
-    # print(mainDf['Initial Trading Open'].max())
-    # matplotlib.pyplot.figure()
-    #matplotlib.pyplot.show()
-
-
-    return mainDf
 
 def issueprice(mainDf):
     cleanDf = mainDf.dropna(subset=['Issue Price'])
@@ -209,9 +207,20 @@ def topfeatures(mainDf):
         print(top_10_features)
 
 
+def exploratorydataanalysis(mainDf):
+    issueprice(mainDf)
+    moneyraised(mainDf)
+    totalraised(mainDf)
+    topfeatures(mainDf)
+    #mainDf['Currency'].value_counts().plot.bar()
+    #matplotlib.pyplot.show()
 
-
-
+    # mainDf['Initial Trading Open'].plot.bar()
+    #matplotlib.pyplot.boxplot(mainDf['Initial Trading Open'], showmeans=True)
+    # print(mainDf['Initial Trading Open'].max())
+    # matplotlib.pyplot.figure()
+    #matplotlib.pyplot.show()
+    return mainDf
 
 def main():
     pandas.set_option('display.max_columns', None)
