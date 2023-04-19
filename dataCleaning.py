@@ -5,7 +5,7 @@ import pandas
 import yfinance
 import matplotlib
 import matplotlib.pyplot as plt
-from sklearn.feature_selection import SelectKBest, f_classif
+from sklearn.feature_selection import SelectKBest, f_classif, chi2
 from scipy.stats import linregress
 import numpy as np
 
@@ -29,12 +29,9 @@ def checkfortypes(mainDf):
 
 
 def fixemptydata(mainDf):
-
-
     mainDf['FTSE Industry'].fillna(0,inplace = True)
     mainDf['FTSE Sector'].fillna('Not Identified',inplace = True)
     mainDf[' FTSE Subsector '].fillna('Not Identified',inplace = True) #not sure why there is spaces
-
     mainDf['Currency'].fillna('GBX',inplace = True)
     mainDf['Nominated Advisor (AIM only)'].fillna('No Advisor',inplace = True)
     return mainDf
@@ -72,6 +69,36 @@ def removeanomalousrows(mainDf):
     #PRSM
     return mainDf
 
+def cleancolumns(mainDf):
+    mainDf = cleanissueprice(mainDf)
+    mainDf = cleanmarketcap(mainDf)
+    mainDf = cleanmoneyraisedexisting(mainDf)
+    mainDf = cleantotalraised(mainDf)
+    return mainDf
+
+
+def cleanissueprice(mainDf):
+    cleanDf = mainDf.dropna(subset=['Issue Price'])
+    slope, intercept, rvalue, pvalue, stderr = linregress(cleanDf['Issue Price'], cleanDf['Adj Close Day 1'])
+    x = cleanDf['Issue Price']
+    y = slope * x + intercept
+    mainDf['Issue Price'] = mainDf.apply(
+        lambda row: row['Adj Close Day 1'] / slope - intercept if np.isnan(row['Issue Price']) else row['Issue Price'],
+        axis=1)
+    return mainDf
+
+
+def cleanmarketcap(mainDf):
+    mainDf.loc[mainDf[' Market Cap - Opening Price (Â£m) '] == ' -   ', ' Market Cap - Opening Price (Â£m) '] = 0
+    return mainDf
+
+def cleanmoneyraisedexisting(mainDf):
+    mainDf.loc[mainDf['Money Raised - Existing ()'] == ' -   ', 'Money Raised - Existing ()'] = 0
+    return mainDf
+
+def cleantotalraised(mainDf):
+    mainDf.loc[mainDf['Money Raised - Existing ()'] == ' -   ', 'Money Raised - Existing ()'] = 23
+    return mainDf
 
 def datapreparation(mainDf):
     # use showrowswithmissingvals(mainDf)
@@ -79,21 +106,23 @@ def datapreparation(mainDf):
     mainDf = removeanomalousrows(mainDf)
     mainDf = removecols(mainDf)
     mainDf = fixemptydata(mainDf)
-
-    mainDf = exploratorydataanalysis(mainDf)
-
+    mainDf = cleancolumns(mainDf)
 
     #checkfortypes(mainDf) #all rows shown
     #rowcount(mainDf) #how many rows in df
-    #mainDf.to_csv(os.getcwd() + '\\MainData\\DataPrep.csv', index=False)  # save for later viewing
+    mainDf.to_csv(os.getcwd() + '\\MainData\\DataPrep.csv', index=False)  # save for later viewing
+    for col in mainDf:
+        if "Adj Close Day" not in col:
+            mainDf.dropna(subset=[col], inplace=True)
     showrowswithmissingvals(mainDf)
-
     return mainDf
 
 
 def exploratorydataanalysis(mainDf):
-
     issueprice(mainDf)
+    moneyraised(mainDf)
+    totalraised(mainDf)
+    #topfeatures(mainDf)
     #mainDf['Currency'].value_counts().plot.bar()
     #matplotlib.pyplot.show()
 
@@ -103,7 +132,7 @@ def exploratorydataanalysis(mainDf):
     # matplotlib.pyplot.figure()
     #matplotlib.pyplot.show()
 
-    #topfeatures(mainDf)
+
     return mainDf
 
 def issueprice(mainDf):
@@ -122,27 +151,64 @@ def issueprice(mainDf):
     mainDf['Issue Price'] = mainDf.apply(lambda row: row['Adj Close Day 1'] / slope - intercept if np.isnan(row['Issue Price']) else row['Issue Price'], axis=1)
 
 
+def moneyraised(mainDf):
+    cleanDf = mainDf.drop(mainDf[mainDf['Money Raised - Existing ()'] == '-'].index)
+    cleanDf['Money Raised - Existing ()'] = cleanDf['Money Raised - Existing ()'].astype(float)
+    mean = cleanDf['Money Raised - Existing ()'].mean()
+    median = cleanDf['Money Raised - Existing ()'].median()
+    print("Money Raised - Existing ()", mean)
+    print("Money Raised - Existing ()", median)
+    plt.hist(cleanDf['Money Raised - Existing ()'], bins=70)
+    plt.axvline(x=mean, color='r', linestyle='--')     # Add a vertical line for the mean
+    plt.axvline(x=median, color='#FFA500', linestyle='--')  # Add a vertical line for the mean
+    plt.xlabel('Money Raised - Existing ()')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of Money Raised - Existing ()')
+    plt.show()
+
+    cleanDf['Money Raised - Existing ()'].plot(kind='density')
+    plt.xlabel('Money Raised - Existing ()')
+    plt.ylabel('Density')
+    #plt.grid(True)
+    plt.show()
+
+
+def totalraised(mainDf):
+    cleanDf = mainDf.drop(mainDf[mainDf['TOTAL RAISED ()'] == '-'].index)
+    cleanDf['TOTAL RAISED ()'] = cleanDf['TOTAL RAISED ()'].astype(float)
+    mean = cleanDf['TOTAL RAISED ()'].mean()
+    median = cleanDf['TOTAL RAISED ()'].median()
+    print("Mean of TOTAL RAISED ():", mean)
+    print("Median of TOTAL RAISED ():",median)
+    plt.hist(cleanDf['TOTAL RAISED ()'], bins=70)
+    plt.axvline(x=mean, color='r', linestyle='--')  # Add a vertical line for the mean
+    plt.axvline(x=median, color='#FFA500', linestyle='--')  # Add a vertical line for the mean
+    plt.xlabel('TOTAL RAISED ()')
+    plt.ylabel('Frequency')
+    plt.title('Histogram of TOTAL RAISED ()')
+    plt.show()
+
+    cleanDf['TOTAL RAISED ()'].plot(kind='density')
+    plt.xlabel('TOTAL RAISED ()')
+    plt.ylabel('Density')
+    # plt.grid(True)
+    plt.show()
+
 def topfeatures(mainDf):
-    k = 1
-    for col in mainDf:
+    k = '5'
+    initialDayDf = mainDf.iloc[:, 0:22]
+    for col in initialDayDf:
         # Skip columns that are not numeric
-        if not pandas.api.types.is_numeric_dtype(mainDf[col]):
+        if not pandas.api.types.is_numeric_dtype(initialDayDf[col]):
             continue
-        print(mainDf[col])
+
         # Create a SelectKBest object to select the top k features for the column
         selector = SelectKBest(score_func=f_classif, k=k)
 
-        # Fit the selector to the data in the column
-        selector.fit(mainDf[[col]], mainDf['Adj Close Day 1'])
+        top_10_features = SelectKBest(chi2, k=10).fit_transform(initialDayDf, initialDayDf['Adj Close Day 1'])
+        print(top_10_features)
 
-        # Get the indices of the top k features for the column
-        top_k_indices = selector.get_support(indices=True)
 
-        # Get the names of the top k features for the column
-        top_k_features = mainDf[[col]].columns[top_k_indices]
-
-        # Print the results
-        print(f"Top {k} features for column '{col}': {list(top_k_features)}")
 
 
 
@@ -153,7 +219,7 @@ def main():
 
     mainDf = getdatacsv()
     mainDf = datapreparation(mainDf)
-
+    mainDf = exploratorydataanalysis(mainDf)
 
 
 
