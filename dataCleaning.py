@@ -4,19 +4,40 @@ import os
 import pandas
 import yfinance
 import matplotlib
+import matplotlib.pyplot as plt
 from sklearn.feature_selection import SelectKBest, f_classif
+from scipy.stats import linregress
+import numpy as np
 
 def getdatacsv():
-    mainDf = pandas.read_csv(os.getcwd() + '\\MainCsvs\\output.csv', encoding='latin1', header=0)
+    mainDf = pandas.read_csv(os.getcwd() + '\\MainData\\TickerData.csv', encoding='latin1', header=0)
     return mainDf
 
 
 def removecols(mainDf):
-    mainDf = mainDf.drop(['Transfer', 'LSE IPO'], axis=1)
+    if 'Transfer' in mainDf.columns:
+        mainDf.drop(['Transfer'], axis=1,inplace = True)
+    if 'LSE IPO' in mainDf.columns:
+        mainDf.drop(['LSE IPO'], axis=1,inplace = True)
+    if 'notes' in mainDf.columns:
+        mainDf.drop(['notes'], axis=1,inplace = True)
     return mainDf
+
 
 def checkfortypes(mainDf):
     print(mainDf.isna().sum(),"\n")
+
+
+def fixemptydata(mainDf):
+
+
+    mainDf['FTSE Industry'].fillna(0,inplace = True)
+    mainDf['FTSE Sector'].fillna('Not Identified',inplace = True)
+    mainDf[' FTSE Subsector '].fillna('Not Identified',inplace = True) #not sure why there is spaces
+
+    mainDf['Currency'].fillna('GBX',inplace = True)
+    mainDf['Nominated Advisor (AIM only)'].fillna('No Advisor',inplace = True)
+    return mainDf
 
 def showrowswithmissingvals(mainDf):
     values_missing = ["n.a.", "?", "NA", "n/a", "na", "--"]
@@ -25,8 +46,8 @@ def showrowswithmissingvals(mainDf):
 
 def removeemptyrows(mainDf):
     #drop row if column TIDM is NAN
-    mainDf = mainDf.dropna(subset=['TIDM'])
-    mainDf = mainDf.dropna(subset=['Initial Trading Open'])
+    mainDf.dropna(subset=['TIDM'],inplace = True)
+    mainDf.dropna(subset=['Initial Trading Open'],inplace = True)
     return mainDf
 
 def rowcount(mainDf):
@@ -35,9 +56,9 @@ def rowcount(mainDf):
 
 def removeanomalousrows(mainDf):
     #print(mainDf['Initial Trading Open'].dtype)
-    tickersToRemove = ['SENX','MTPH','MYSQ','BARK','CRTM','FISH']
+    tickersToRemove = ['SENX','MTPH','MYSQ','BARK','CRTM','FISH','IL0A','PRSM']
     for ticker in tickersToRemove:
-        mainDf = mainDf.drop(index=mainDf[mainDf['TIDM'] == ticker].index)
+        mainDf.drop(index=mainDf[mainDf['TIDM'] == ticker].index,inplace = True)
 
     #Yahoo picking up old data for old company tickers/Delisted-
     #SENX
@@ -45,51 +66,60 @@ def removeanomalousrows(mainDf):
     #MYSQ
     #BARK
     #Fish
-
     #Random jumps in data
     #CRTM
+    #IL0A
+    #PRSM
     return mainDf
-
-
-def removenonipo(mainDf):
-    rows_to_drop = mainDf[mainDf['LSE IPO'] == "Not IPO"].index
-    mainDf.drop(rows_to_drop, inplace=True)
-    return mainDf
-
-
-
 
 
 def datapreparation(mainDf):
-    mainDf = removecols(mainDf)
-    mainDf = removenonipo(mainDf)
-    # showrowswithmissingvals(mainDf)
+    # use showrowswithmissingvals(mainDf)
     mainDf = removeemptyrows(mainDf)
     mainDf = removeanomalousrows(mainDf)
-    showrowswithmissingvals(mainDf)
-    # checkfortypes(mainDf)
-    # rowcount(mainDf)
-    #print(mainDf)
-
+    mainDf = removecols(mainDf)
+    mainDf = fixemptydata(mainDf)
 
     mainDf = exploratorydataanalysis(mainDf)
+
+
+    #checkfortypes(mainDf) #all rows shown
+    #rowcount(mainDf) #how many rows in df
+    #mainDf.to_csv(os.getcwd() + '\\MainData\\DataPrep.csv', index=False)  # save for later viewing
+    showrowswithmissingvals(mainDf)
 
     return mainDf
 
 
 def exploratorydataanalysis(mainDf):
 
-    mainDf['Currency'].value_counts().plot.bar()
+    issueprice(mainDf)
+    #mainDf['Currency'].value_counts().plot.bar()
     #matplotlib.pyplot.show()
 
     # mainDf['Initial Trading Open'].plot.bar()
-    matplotlib.pyplot.boxplot(mainDf['Initial Trading Open'], showmeans=True)
+    #matplotlib.pyplot.boxplot(mainDf['Initial Trading Open'], showmeans=True)
     # print(mainDf['Initial Trading Open'].max())
     # matplotlib.pyplot.figure()
     #matplotlib.pyplot.show()
 
-    topfeatures(mainDf)
+    #topfeatures(mainDf)
     return mainDf
+
+def issueprice(mainDf):
+    cleanDf = mainDf.dropna(subset=['Issue Price'])
+    plt.scatter(cleanDf['Issue Price'], cleanDf['Adj Close Day 1'])
+    plt.xlabel('Issue Price')
+    plt.ylabel('Adj Close Day 1')
+    slope, intercept, rvalue, pvalue, stderr = linregress(cleanDf['Issue Price'], cleanDf['Adj Close Day 1'])
+    print('Slope:', slope)
+    print('Intercept:', intercept)
+    print('R-squared:', rvalue ** 2)
+    x = cleanDf['Issue Price']
+    y = slope * x + intercept
+    plt.plot(x, y, color='r')
+    plt.show()
+    mainDf['Issue Price'] = mainDf.apply(lambda row: row['Adj Close Day 1'] / slope - intercept if np.isnan(row['Issue Price']) else row['Issue Price'], axis=1)
 
 
 def topfeatures(mainDf):

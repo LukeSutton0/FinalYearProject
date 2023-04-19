@@ -77,10 +77,10 @@ def adjCloseCalc(mainDf,index,dataFromYahoo,daysToAdd):
 def main():
         mainDf = pandas.DataFrame()
         try:
-            directory = os.getcwd() + '\\MainDataa'
+            directory = os.getcwd() + '\\MainData'
             for filename in os.listdir(directory):
                      if filename.startswith("New issues"):
-                        print(filename)
+                        #print(filename)
                         mainDf = pandas.read_excel(directory+'\\'+filename,header=7)
         except:
             print("Data file not found")
